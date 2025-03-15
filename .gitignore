@@ -1,0 +1,5 @@
+.env
+node_modules
+facturas
+certificados\clave_privada.pem
+certificados\clave_publica.pem

@@ -100,53 +100,23 @@ async function enviarFacturaAEAT(factura, firma) {
     }
 }
 
-app.post('/register', (req, res) => {
-    const { name, nif, email, password } = req.body;
-    if (!name || !nif || !email || !password) {
+app.post('/api/auth/register', (req, res) => {
+    const { username, password, nif, email, rol} = req.body;
+    if (!username || !nif || !email || !password || !rol)  {
         return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
     // Hash de la contraseña (por ejemplo, usando bcrypt)
-    const hashedPassword = bcrypt.hashSync(password, 10);
+   // const hashedPassword = bcrypt.hashSync(password, 10);
 
     // Consulta a la base de datos para registrar al usuario
-    const query = 'INSERT INTO users (name, nif, email, password) VALUES (?, ?, ?, ?)';
-    db.query(query, [name, nif, email, hashedPassword], (err, result) => {
+    const query = 'INSERT INTO users (username, nif, email, password, rol) VALUES (?, ?, ?, ?, ?)';
+    db.query(query, [username, nif, email, password, rol], (err, result) => {
         if (err) {
             console.error("Error al registrar el usuario:", err);
             return res.status(500).json({ error: "Error al registrar el usuario", details: err });
         }
-        res.status(200).json({ success: true, message: "Usuario registrado exitosamente" });
-    });
-});
-
-// 📌 Ruta para login de usuario
-app.post("/login", (req, res) => {
-    const { username, password } = req.body;
-
-    const query = "SELECT * FROM users WHERE username = ?";
-    db.query(query, [username], async (err, result) => {
-        if (err) {
-            console.error("❌ Error al hacer login:", err);
-            return res.status(500).json({ error: "Error al hacer login" });
-        }
-
-        if (result.length === 0) {
-            return res.status(401).json({ error: "Usuario no encontrado" });
-        }
-
-        const user = result[0];
-
-        // Comparar contraseñas
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({ error: "Contraseña incorrecta" });
-        }
-
-        // Crear JWT
-        const token = jwt.sign({ userId: user.id, username: user.username }, "secreto", { expiresIn: "1h" });
-
-        res.json({ token });
+        res.status(200).json({ success: true, message: "Usuario registrado exitosamente",username,password, nif, email, rol });
     });
 });
 
@@ -217,6 +187,43 @@ app.put("/editar_factura/:id", (req, res) => {
 // 📌 Bloqueo de eliminación de facturas
 app.delete("/borrar_factura/:id", (req, res) => {
     res.status(403).json({ error: "⛔ No se permite eliminar facturas" });
+});
+
+
+
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Please provide username and password.' });
+    }
+
+    db.query('SELECT * FROM users WHERE username = ?', [username], (err, results) => {
+        if (err) {
+            return res.status(500).json({ success: false, message: 'Error querying database.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(401).json({ success: false, message: 'Invalid username .' });
+        }
+
+        const user = results[0];
+
+        // Compare the provided password with the hashed password
+        if (bcrypt.compare(password, user.password)) {
+               // Crear JWT
+            const token = jwt.sign({ userId: user.id, username: user.username }, "secreto", { expiresIn: "1h" });
+
+            return res.json({ 
+                success: true,
+                'rol': user.rol,
+                'user': user.username,
+                'token': token
+             });
+        } else {
+            return res.status(401).json({ success: false, message: 'Invalid  or password.' });
+        }
+    });
 });
 
 // 📌 Servidor en puerto 3000
